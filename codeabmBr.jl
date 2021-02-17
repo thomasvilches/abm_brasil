@@ -36,19 +36,22 @@ Base.@kwdef mutable struct Human
     vac_red::Float64 = 0.0
     first_one::Bool = false
     lethality::Float64 = 0.0
+    vac_ef_sev::Float64 = 0.0
 end
+
+
 
 ## default system parameters
 @with_kw mutable struct ModelParameters @deftype Float64    ## use @with_kw from Parameters
     β = 0.0345       
     seasonal::Bool = false ## seasonal betas or not
-    popsize::Int64 = 10000
+    popsize::Int64 = 100000
     prov::Symbol = :saopaulo
     calibration::Bool = false
     calibration2::Bool = false 
     ignore_cal::Bool = false
     start_several_inf::Bool = false
-    modeltime::Int64 = 500
+    modeltime::Int64 = 300
     initialinf::Int64 = 1
     initialhi::Int64 = 0 ## initial herd immunity, inserts number of REC individuals
     τmild::Int64 = 0 ## days before they self-isolate for mild cases
@@ -86,15 +89,16 @@ end
     single_dose::Bool = false
     drop_rate::Float64 = 0.0
     fixed_cov::Float64 = 0.4
-
+    vac_ef_sev::Float64 = 0.0
+    vac_ef_sev_fd::Float64 = vac_ef_sev/2.0
     red_risk_perc::Float64 = 0.0
     reduction_protection::Float64 = 0.0
-    fd_1::Int64 = 30
+    fd_1::Int64 = 300
     fd_2::Int64 = 0
-    sd1::Int64 = 30
+    sd1::Int64 = fd_1
     sec_dose_delay::Int64 = vac_period
 
-    days_Rt::Array{Int64,1} = [100;200;300]
+    days_Rt::Array{Int64,1} = [50;100;150;200]
     priority::Bool = false
 end
 
@@ -103,7 +107,7 @@ end
 const humans = Array{Human}(undef, 0) 
 const p = ModelParameters()  ## setup default parameters
 const agebraks = @SVector [0:4, 5:19, 20:49, 50:64, 65:100]
-const agebraks_ct = @SVector[0:4, 5:9, 10:14, 15:19, 20:24, 25:29, 30:34, 35:39, 40:44, 45:49, 50:54, 55:59, 60:64, 65:69, 70:74, 75:100]
+#const agebraks_ct = @SVector[0:4, 5:9, 10:14, 15:19, 20:24, 25:29, 30:34, 35:39, 40:44, 45:49, 50:54, 55:59, 60:64, 65:69, 70:74, 75:100]
 const agebraks_dist = @SVector[0:4, 5:9, 10:14, 15:19, 20:24, 25:29, 30:34, 35:39, 40:44, 45:49, 50:54, 55:59, 60:64, 65:69, 70:74, 75:79, 80:100]
 
 function runsim(simnum::Int64,ip::ModelParameters)
@@ -126,11 +130,19 @@ function runsim(simnum::Int64,ip::ModelParameters)
 
     for i = 1:size(hh1,1)
         if length(hh1[i]) > 0
-            R0[i] = length(findall(k -> k.sickby in hh1[i],humans))/length(hh1[i])
+            R0[i] = length(findall(k -> k.sickby in hh1[i] && k.wentTo == PRE,humans))/length(hh1[i])
         end
     end
 
-    return (a=all, g1=ag1, g2=ag2, g3=ag3, g4=ag4, g5=ag5,g6=ag6, R0=R0)
+    R0_r = zeros(Float64,size(hh1,1))
+
+    for i = 1:size(hh1,1)
+        if length(hh1[i]) > 0
+            R0_r[i] = length(findall(k -> k.sickby in hh1[i],humans))/length(hh1[i])
+        end
+    end
+
+    return (a=all, g1=ag1, g2=ag2, g3=ag3, g4=ag4, g5=ag5,g6=ag6, R0=R0, R0_r = R0_r)
 end
 
 
@@ -158,11 +170,11 @@ function main(ip::ModelParameters,sim::Int64)
     initialize() # initialize population
 
     if p.start_several_inf
-       # N = herd_immu_dist_4(sim)
+        herd_immu_dist()
         insert_infected(PRE, p.initialinf, 4)[1]
         
     else
-       # N = herd_immu_dist_4(sim)
+        herd_immu_dist()
         insert_infected(PRE, 1, 4)[1]
         
     end
@@ -247,6 +259,36 @@ function main(ip::ModelParameters,sim::Int64)
     return  hmatrix, h_init
 end
 
+function herd_immu_dist()
+    
+    age_group = [0:9,10:19,20:29,30:39,40:49,50:59,60:69,70:79,80:100]
+    aux = herd_dist(p.prov)
+
+    prop = p.herd/100
+
+    aux = map(x-> Int(round(x*prop*p.popsize)),aux)
+
+    for i = 1:length(age_group)
+        pos = findall(x-> x.age in age_group[i],humans)
+        for j in sample(pos,Int(aux[i]),replace=false)
+            move_to_recovered(humans[j])
+            humans[i].sickfrom = INF
+            humans[i].herd_im = true
+        end
+    end
+end
+function herd_dist(prov)
+
+    ret = @match prov begin
+        :saopaulo => reverse([0.026;0.045;0.091;0.147;0.203;0.236;0.175;0.052;0.025])
+        :bahia=> reverse([0.02450584913;0.04003630496;0.07513110125;0.1312020976;0.1981645825;0.2451593384;0.1795078661;0.07321500605;0.03307785397])
+        :goias => reverse([0.01951902956;0.03780165433;0.07585777453;0.134037655;0.1924809824;0.2393476094;0.2071950975;0.06468821943;0.02907197792])
+        :riograndedosul =>  reverse([0.02448613415;0.04601540822;0.09361775511;0.1471686999;0.1820251585;0.2251592752;0.1894463735;0.05909457302;0.03298662244])
+        :para     => reverse([0.02151312882;0.04314254483;0.0822524524;0.1313377779;0.1944068899;0.2398681;0.1740141628;0.06871561312;0.04474933034])
+         _=> error("no state available")
+    end
+    return ret   
+end
 ## Data Collection/ Model State functions
 function _get_model_state(st, hmatrix)
     # collects the model state (i.e. agent status at time st)
@@ -257,7 +299,7 @@ end
 
 function get_ag_dist() 
     # splits the initialized human pop into its age groups
-    grps =  map(x -> findall(y -> y.ag_ct == x, humans), 1:length(agebraks_ct)) 
+    grps =  map(x -> findall(y -> y.ag_ct == x, humans), 1:length(agebraks)) 
     return grps
 end
 function _collectdf(hmatrix)
@@ -334,27 +376,28 @@ function vac_selection()
     pos_v_eld = findall(x-> humans[x].age>=80, 1:length(humans))
     pos_v_eld = sample(pos_v_eld,Int(round(p.eld_comp*length(pos_v_eld))),replace=false)
 
-    pos_com = findall(x->humans[x].comorbidity == 1 && !(x in pos_hcw) && humans[x].age<65 && humans[x].age>=18, 1:length(humans))
+    pos_com = findall(x->humans[x].comorbidity == 1 && !(x in pos_hcw) && humans[x].age<60 && humans[x].age>=18, 1:length(humans))
     pos_com = sample(pos_com,Int(round(p.comor_comp*length(pos_com))),replace=false)
 
 
-    pos_eld = findall(x-> humans[x].age>=65 && humans[x].age<=79, 1:length(humans))
+    pos_eld = findall(x-> humans[x].age>=60 && humans[x].age<=79, 1:length(humans))
     pos_eld = sample(pos_eld,Int(round(p.eld_comp*length(pos_eld))),replace=false)
 
-    pos_n_com = findall(x->humans[x].comorbidity == 0 && !(x in pos_hcw) && humans[x].age<65 && humans[x].age>=18, 1:length(humans))
+    pos_n_com = findall(x->humans[x].comorbidity == 0 && !(x in pos_hcw) && humans[x].age<60 && humans[x].age>=18, 1:length(humans))
     pos_n_com = sample(pos_n_com,Int(round(length(pos_n_com))),replace=false)
     #pos_y = findall(x-> humans[x].age<18, 1:length(humans))
     #pos_y = sample(pos_y,Int(round(p.young_comp*length(pos_y))),replace=false)
 
-    if p.priority
+    #= if p.priority
         aux1 = findall(y->humans[y].comorbidity==1,pos_eld)
         pos1 = shuffle([pos_com;pos_eld[aux1]])
         aux1 = findall(y->humans[y].comorbidity==0,pos_eld)
         pos1 = [pos1;pos_eld[aux1]]
-    else
-        pos1 = shuffle([pos_com;pos_eld])
-    end
+    else =#
+        #pos1 = shuffle([pos_com;pos_eld])
     
+    #end
+    pos1 = [pos_eld;pos_com]
     pos_h = shuffle([pos_hcw;pos_v_eld]) #in brasil the 80+ are vaccinated first
     #pos2 = shuffle([pos_n_com;pos_y])
     pos2 = shuffle(pos_n_com)
@@ -376,8 +419,8 @@ end
 function vac_index_new(l::Int64)
 
 
-    v1 = Array{Int64,1}(undef,p.modeltime);
-    v2 = Array{Int64,1}(undef,p.modeltime);
+    v1 = Array{Int64,1}(undef,p.popsize);
+    v2 = Array{Int64,1}(undef,p.popsize);
     n::Int64 = p.fd_2+p.sd1
     v1_aux::Bool = false
    
@@ -386,7 +429,7 @@ function vac_index_new(l::Int64)
     kk::Int64 = 2
 
     if p.single_dose
-        for i = 1:p.modeltime
+        for i = 1:p.popsize
             v1[i] = -1
             v2[i] = -1
            
@@ -408,7 +451,7 @@ function vac_index_new(l::Int64)
         end
         a = a+1
     else
-        for i = 1:p.modeltime
+        for i = 1:p.popsize
             v1[i] = -1
             v2[i] = -1
         end
@@ -421,6 +464,10 @@ function vac_index_new(l::Int64)
             v2[i] = 0
             if i > (p.vac_period+1)
                 eligible = eligible+(v1[i-p.vac_period]-v1[i-p.vac_period-1])
+            end
+            if v1[i] >= l
+                v1[i] = l
+                
             end
         end
 
@@ -541,9 +588,11 @@ function vac_update(x::Human)
                 red_com = x.vac_red #p.vac_com_dec_min+rand()*(p.vac_com_dec_max-p.vac_com_dec_min)
                 aux = p.single_dose ? ((1-red_com)^comm)*(p.vac_efficacy) : ((1-red_com)^comm)*p.vac_efficacy_fd
                 x.vac_ef = aux
+                x.vac_ef_sev = p.vac_ef_sev_fd
             else
                 red_com = x.vac_red#p.vac_com_dec_min+rand()*(p.vac_com_dec_max-p.vac_com_dec_min)
                 x.vac_ef = ((1-red_com)^comm)*(p.vac_efficacy-p.vac_efficacy_fd)+x.vac_ef
+                x.vac_ef_sev = p.vac_ef_sev
             end
         end
         x.days_vac += 1
@@ -586,7 +635,7 @@ function initialize()
         x.idx = i 
         g = rand(agedist)
         x.age = rand(agebraks_dist[g])
-        x.ag_ct = findfirst(y->x.age in y, agebraks_ct) 
+        x.ag_ct = findfirst(y->x.age in y, agebraks) 
         a = [4;19;49;64;79;999]
         g = findfirst(y->y>=x.age,a)
         x.ag_new = g 
@@ -629,12 +678,18 @@ function insert_infected(health, num, ag)
             x.first_one = true
             if health == PRE 
                 move_to_pre(x) ## the swap may be asymp, mild, or severe, but we can force severe in the time_update function
+                x.wentTo = PRE
             elseif health == LAT 
                 move_to_latent(x)
             elseif health == INF
                 move_to_infsimple(x)
+                x.wentTo = PRE
+            elseif health == MILD
+                move_to_mild(x)
+                x.wentTo = PRE
             elseif health == ASYMP
                 move_to_asymp(x)
+                x.wentTo = ASYMP
             elseif health == REC 
                 move_to_recovered(x)
             else 
@@ -751,8 +806,8 @@ function move_to_pre(x::Human)
     x.health = PRE
     x.tis = 0   # reset time in state 
     x.exp = x.dur[3] # get the presymptomatic period
-
-    if rand() < sev_prob[x.ag]#*(1-x.vac_ef)
+    
+    if rand() < sev_prob[x.ag]*(1-x.vac_ef_sev)
         x.swap = INF
     else 
         x.swap = MILD
@@ -789,7 +844,15 @@ function move_to_miso(x::Human)
     x.exp = x.dur[4] - p.τmild  ## since tau amount of days was already spent as infectious
     _set_isolation(x, true, :mi) 
 end
-export move_to_miso
+
+function move_to_iiso(x::Human)
+    ## transfers human h to the sever isolated infection stage for γ days
+    x.health = IISO   
+    x.swap = REC
+    x.tis = 0     ## reset time in state 
+    x.exp = x.dur[4] - 1  ## since 1 day was spent as infectious
+    _set_isolation(x, true, :mi)
+end 
 
 function move_to_infsimple(x::Human)
     ## transfers human h to the severe infection stage for γ days 
@@ -813,8 +876,7 @@ function move_to_inf(x::Human)
     
    # death rate for severe cases.
 
-    time_to_hospital = Int(round(rand(Uniform(2, 5)))) # duration symptom onset to hospitalization
-   	
+    time_to_hospital = Int(round(rand(Uniform(3, 9)))) # duration symptom onset to hospitalization
     x.health = INF
     x.swap = UNDEF
     x.tis = 0 
@@ -1004,9 +1066,9 @@ end
 end
 function contact_distribution()
     
-    m_c = Array{Array{Float64,1},1}(undef,16)
+    #m_c = Array{Array{Float64,1},1}(undef,16)
 
-    m_c[1] = [0.285009075885926;0.0968481307401908;0.047287779698645;0.0319710045985053;0.0491021098576064;0.0813035055874084;0.102094611134498;0.0838073150878239;0.0508486779191276;0.0380450296078014;0.0396569205006603;0.0352981235828193;0.0234185808753338;0.0178129613645931;0.0115796954263125;0.00591647813274764]
+   #=  m_c[1] = [0.285009075885926;0.0968481307401908;0.047287779698645;0.0319710045985053;0.0491021098576064;0.0813035055874084;0.102094611134498;0.0838073150878239;0.0508486779191276;0.0380450296078014;0.0396569205006603;0.0352981235828193;0.0234185808753338;0.0178129613645931;0.0115796954263125;0.00591647813274764]
     m_c[2] = [0.0909515812155396;0.468001246382323;0.0733506559351036;0.0216368802416714;0.0173701332995331;0.0439967678560112;0.0616140651076325;0.061971607833196;0.0536609840082811;0.029922682045757;0.0240937321756765;0.0183223482687961;0.0159003527895726;0.0103074761814226;0.00525751526290217;0.00364197139658195]
     m_c[3] = [0.0178871087370889;0.120105592489366;0.531326600647122;0.0489554515852244;0.0208374871164309;0.0247847734391823;0.0334721811079142;0.0490333276880978;0.0544452477046488;0.0356930574392555;0.0231019928307072;0.0142091048423455;0.00884644380652761;0.00734943992538906;0.00540206822040438;0.00455012242029545]
     m_c[4] = [0.0118542335451258;0.0236141759293866;0.155509163735534;0.470256898614389;0.0712956373485155;0.0388027326517064;0.0312410935385382;0.044216581249968;0.049169640464817;0.0477970854218185;0.0257218607016628;0.0136039532315842;0.00741742910243348;0.00489631385559543;0.00274767002701591;0.00185553058190873]
@@ -1022,12 +1084,21 @@ function contact_distribution()
     m_c[14] = [0.075742243231936;0.106566687763789;0.0840857377496642;0.0460107964819059;0.0487844124451564;0.0650005900042552;0.0933410570254012;0.0887414076905565;0.0829450628563119;0.0471145216138226;0.0529835740431502;0.0560885459315333;0.056082586292592;0.0559705450804968;0.0275156529916792;0.0130265787977501]
     m_c[15] = [0.044952791668065;0.119269557337987;0.0921037912094059;0.080103142374512;0.0250598494255574;0.0501882180532716;0.0470223512434138;0.0828984461522972;0.0862083431217908;0.0671544115179381;0.050653868957725;0.0381428219843161;0.0672285241243526;0.0587726952377756;0.0619385620476334;0.0283026255439586]
     m_c[16] = [0.0642919880466826;0.0827469410006865;0.114924484109357;0.0925473488672617;0.0347696159592941;0.0329700561321326;0.0533911480838348;0.0768535718612446;0.0776915155675807;0.0797485159310261;0.078330069054638;0.0460364253119574;0.0352744013245568;0.0512129992327263;0.0462332916044098;0.0329776279126116]
+ =#
+
+    m_c = Array{Array{Float64,1},1}(undef,5) 
+    m_c[1] = [0.285009075885926;0.176106915037341;0.405201249194266;0.098373624958813;0.035309134923653]
+    m_c[2] = [0.035362349235548;0.643822691641948;0.25629375827145;0.04966993912862;0.014851261722434]
+    m_c[3] = [0.042726265864658;0.163456704329509;0.652445996872462;0.119477660451184;0.021893372482187]
+    m_c[4] = [0.060045136917024;0.169564663457276;0.529496374214793;0.202967142529434;0.037926682881474]
+    m_c[5] = [0.063703866364509;0.266200691900669;0.388472172542373;0.161067428871984;0.120555840320466]
+    
 
     return m_c
 end
 const cm = contact_distribution()
 
-const nbs = [11.80601; 18.93480; 21.31591; 23.43804; 17.27478; 15.45036; 15.63082; 16.82087; 16.12162; 12.86428; 13.70134; 12.78195; 11.07824;  8.38977;  7.15128;  3.96208]
+const nbs = [11.80601;21.3243189481628;15.8046374217745;12.7110727888636;6.33160612575525]
 const sev_prob = map(y->1-y,[0.95, 0.9, 0.85, 0.6, 0.2])
 
 
