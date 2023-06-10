@@ -155,6 +155,25 @@ function run_param_fixed(prov="saopaulo",herd_im_v = [0],fs=0.0,fm=0.0,vaccinate
     end
 end
 
+
+## now, running vaccine and herd immunity, focusing and not focusing in comorbidity, first  argument turns off vac
+function run_param_initial(prov="saopaulo",herd_im_v = [0],fs=0.0,fm=0.0,vaccinate = false,v_e = 0.0,red = 0.0,red_perc=0.0,ef_sev=0.0,vac_rate=300,ii=1,vef=v_e/2.0,per=21,v_d = [14;7],nsims=1000)
+    for h_i = herd_im_v
+        bi = Dict(5=>1, 10=>2, 20=>3,30=>4)
+        b = get_beta_city(prov,bi[h_i])
+        #b = bd[h_i]
+        @everywhere ip = ModelParameters(β = $b,
+        fsevere = $fs, fmild = $fm, vaccinating = $vaccinate,
+        days_before = 0, vac_efficacy = $v_e, herd = $(h_i), start_several_inf = true,
+        reduction_protection = $red,red_risk_perc = $red_perc,prov=Symbol($prov),vac_ef_sev=$ef_sev,fd_1=$vac_rate,modeltime=300,initialinf=$ii,vac_efficacy_fd = $vef,sec_dose_delay=$per,vac_period=$per,days_to_protection=$v_d)
+
+        folder = create_folder(ip)
+
+        #println("$v_e $(ip.vaccine_ef)")
+        run(ip,nsims,folder)
+    end
+end
+
 function get_beta_city(prov,i)
     pp = Symbol(prov)
 
