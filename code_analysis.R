@@ -1259,3 +1259,257 @@ openxlsx::write.xlsx(df_out, paste0("output/results_red_", vac, ".xlsx"))
 
 
 
+
+
+# YLL ---------------------------------------------------------------------
+
+
+
+
+
+
+
+
+read_data_exp <- function(folder, betai, herdi, efsymp = "0", redp = "0.0", risk_red = "0.0", ef_sev = "0.0", vac_rate = 300, ag = "all"){
+  
+  folder_sim = paste0(folder, "/results_prob_0_", betai,"_vac_0_", efsymp, "_herd_immu_", herdi,
+                      "_redp_", redp, "_fmild_1.0_rp_", risk_red, "_sev_", ef_sev, "_saopaulo_", vac_rate)
+  
+  data.cases1 = read.table(paste0(folder_sim, "/year_of_death.dat")) 
+  data.cases1 = as.matrix(data.cases1)
+  
+  
+  resultados <- purrr::map(1:ncol(data.cases1), function(x) life_exp$Expectancy[1:101]*data.cases1[, x])
+  
+  resultados <- Reduce(cbind, resultados)
+  resultados <- colSums(resultados)
+  
+  resultados_b <- boot::boot(resultados, function(x, i) mean(x[i]), R = 500)
+  
+  df <- data.frame(result  = resultados_b$t)
+  
+  
+  df$beta <- betai
+  df$herdi <- herdi
+  df$Vaccine <- Vaccine
+  df$redp <- redp
+  df$risk_red <- risk_red
+  df$ef_sev <- ef_sev
+  df$vac_rate <- vac_rate
+  df$idx <- seq(1, nrow(df))
+  
+  df <- df %>% 
+    #filter(risk_red == "0.0", vac_rate == 300) %>% 
+    mutate(
+      scenario = case_when(
+        Vaccine == "No Vaccine" ~ "No Vaccine",
+        TRUE ~ paste0(100-as.numeric(redp)*100, "% - ", as.numeric(ef_sev)*100, "%")
+      )
+    )
+  
+  df$scenario <- factor(df$scenario, levels = c("No Vaccine", "0% - 0%", "0% - 100%", "50% - 0%", 
+                                                          "50% - 100%", "100% - 0%", "100% - 100%")
+  )
+ df
+}
+
+
+herd = c("5", "10", "20", "30")
+beta = c("0468", "04695", "053", "0607")
+
+#Vaccines = c("No Vaccine", "CoronaVac", "Astrazeneca", "Pfizer")
+#Vac_efs = c("0", "5038", "7042", "94") # efficacy against symptomatic
+
+# names(Vac_efs) = Vaccines
+
+redp  = c("0.0", "0.5", "1.0") #reduction compared to symptomatic
+ef_sev = c("0.0", "1.0")
+
+risk_red = c("0.0", "1.0")
+vac_rate = c(300, 600)
+
+
+gg <- guides(color = guide_legend(override.aes = list(size=3)))
+
+# no vaccine
+Vaccine = "No Vaccine"
+
+
+df_novac <- read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine])
+
+
+redp <- c("0.0", "0.5", "1.0")
+red_risk <- c("0.0")
+sev_p <- c("0.0", "1.0")
+
+
+## CoronaVac
+Vaccine = "CoronaVac"
+
+df = NULL
+for(red_p in redp){
+    for(sev in sev_p){
+      
+        if(is.null(df))
+          df <- read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine], red_p, "0.0", sev, 300)
+        else
+          df <- bind_rows(df, read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine], red_p, "0.0", sev, 300))
+      
+    }
+  
+}
+
+
+lista <- list(df_novac, df)
+
+df_plot <- Reduce(rbind, lista)
+
+plot_cor <- ggplot(df_plot)+
+  geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
+  geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+  #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
+  scale_color_carto_d(palette = "Bold", name = "Scenarios")+
+  labs(y = "Years of life lost", title = "B")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 13, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 13, face = "plain"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "bottom"
+    
+  )+gg
+
+
+## Astrazeneca
+Vaccine = "Astrazeneca"
+
+df = NULL
+for(red_p in redp){
+  for(sev in sev_p){
+    
+    if(is.null(df))
+      df <- read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine], red_p, "0.0", sev, 300)
+    else
+      df <- bind_rows(df, read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine], red_p, "0.0", sev, 300))
+    
+  }
+  
+}
+
+
+lista <- list(df_novac, df)
+
+df_plot <- Reduce(rbind, lista)
+
+plot_ast <- ggplot(df_plot)+
+  geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
+  geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+  #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
+  scale_color_carto_d(palette = "Bold", name = "Scenarios")+
+  labs(y = "Years of life lost", title = "C")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 13, face = "plain"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "bottom"
+    
+  )+gg
+
+
+## Pfizer
+Vaccine = "Pfizer"
+
+df = NULL
+for(red_p in redp){
+  for(sev in sev_p){
+    
+    if(is.null(df))
+      df <- read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine], red_p, "0.0", sev, 300)
+    else
+      df <- bind_rows(df, read_data_exp("./", beta[3], herd[3], Vac_efs[Vaccine], red_p, "0.0", sev, 300))
+    
+  }
+  
+}
+
+
+lista <- list(df_novac, df)
+
+df_plot <- Reduce(rbind, lista)
+
+plot_pfi <- ggplot(df_plot)+
+  geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
+  geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+  #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
+  scale_color_carto_d(palette = "Bold", name = "Scenarios")+
+  labs(y = "Years of life lost", title = "D")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 13, face = "plain"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "bottom"
+    
+  )+gg
+
+
+## juntando
+
+
+
+life_exp <- read.table("life_exp.csv", sep = ";", h = FALSE)
+
+names(life_exp) <- c("Age", "Expectancy")
+life_exp %>% head()
+
+
+p.data <- ggplot(life_exp)+
+  geom_col(aes(x = Age, y = Expectancy), color = "grey60", fill = "grey60")+
+  labs(title = "A", y = "Life expectancy (years)", x = "Age (years)")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
+  theme_bw()+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+    # axis.ticks.x = element_blank(),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 13, face = "plain"),
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold")
+    
+  )
+
+tt <- theme(axis.title.y = element_blank())
+
+
+pyll <- ggpubr::ggarrange(ggpubr::ggarrange(p.data), ggpubr::ggarrange(plot_cor+gg, plot_ast+tt+gg,
+                                                                       plot_pfi+tt+gg, nrow = 1, widths = c(0.38, .31, .31), common.legend = TRUE, legend = "bottom"), widths = c(0.3, 0.7)
+                          ) + ggpubr::bgcolor("white")
+
+
+
+ggsave(plot = pyll, paste0("output/pyll.png"), device = "png", dpi = 300, width = 10, height = 4)  
+

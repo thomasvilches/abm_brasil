@@ -71,7 +71,7 @@ function run(myp::ModelParameters, nsims=1000, folderprefix="./")
 
     writedlm(string(folderprefix,"/R0.dat"),R0)
     writedlm(string(folderprefix,"/R0_r.dat"),R0_r)
-
+    writedlm(string(folderprefix,"/year_of_death.dat"), hcat([cdr[i].vector_dead for i=1:nsims]...))
 end
 
 

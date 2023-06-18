@@ -142,7 +142,20 @@ function runsim(simnum::Int64,ip::ModelParameters)
         end
     end
 
-    return (a=all, g1=ag1, g2=ag2, g3=ag3, g4=ag4, g5=ag5,g6=ag6, R0=R0, R0_r = R0_r)
+
+    # calculating YLL
+    
+    pos = findall(y-> y == 11,hmatrix[:,end])
+
+    vector_ded::Vector{Int64} = zeros(Int64,101)
+
+    for i = pos
+        x = humans[i]
+        vector_ded[(x.age+1)] += 1
+    end
+
+
+    return (a=all, g1=ag1, g2=ag2, g3=ag3, g4=ag4, g5=ag5,g6=ag6, R0=R0, R0_r = R0_r, vector_dead = vector_ded)
 end
 
 
