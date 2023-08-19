@@ -123,26 +123,50 @@ create_df_initial <- function(n, folder, type, beta, herdi, Vaccine = "No Vaccin
 
 
 
-return_plot <- function(df_plot, type){
+return_plot <- function(df_plot, type, df_l = NULL){
   
-  p_plot <- ggplot(df_plot)+
-    geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
-    geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
-    #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
-    scale_color_carto_d(palette = "Bold", name = "Scenarios")+
-    labs(y = "Number of outcomes occurences", title = variable_names[[type]])+
-    theme_bw()+
-    theme(
-      axis.text.x = element_blank(),
-      axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
-      axis.ticks.x = element_blank(),
-      axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 10, face = "bold"),
-      strip.text = element_text(size = 14, face = "bold"),
-      legend.title = element_text(size = 14, face = "bold"),
-      plot.title = element_text(size = 14, face = "bold")
-      
-    )
+  if(is.null(df_l))
+    p_plot <- ggplot(df_plot)+
+      geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
+      geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+      #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
+      scale_color_carto_d(palette = "Bold", name = "Scenarios")+
+      labs(y = "Number of outcomes occurences", title = variable_names[[type]])+
+      guides(color = guide_legend(override.aes = list(size=3)))+
+      theme_bw()+
+      theme(
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.title = element_text(size = 14, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold")
+        
+      )
+  else
+    p_plot <- ggplot(df_plot)+
+      geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
+      geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+      geom_blank(data = df_l, aes(x = scenario, y = lim_max))+
+      geom_blank(data = df_l, aes(x = scenario, y = lim_min))+
+      #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
+      scale_color_carto_d(palette = "Bold", name = "Scenarios")+
+      labs(y = "Number of outcomes occurences", title = variable_names[[type]])+
+      guides(color = guide_legend(override.aes = list(size=3)))+
+      theme_bw()+
+      theme(
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.title = element_text(size = 14, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold")
+        
+      )
   return(p_plot)
 }
 
@@ -342,15 +366,30 @@ df_plot$scenario <- factor(df_plot$scenario, levels = c("No Vaccine", "0% - 0%",
                                                         "50% - 100%", "100% - 0%", "100% - 100%")
 )
 
+df_l_inf <- data.frame(scenario = unique(df_plot$scenario))
+df_l_inf$lim_min <- 16000
+df_l_inf$lim_max <- 26000
+
+df_l_hos <- data.frame(scenario = unique(df_plot$scenario))
+df_l_hos$lim_min <- 125
+df_l_hos$lim_max <- 350
+
+df_l_icu <- data.frame(scenario = unique(df_plot$scenario))
+df_l_icu$lim_min <- 50
+df_l_icu$lim_max <- 160
+
+df_l_ded <- data.frame(scenario = unique(df_plot$scenario))
+df_l_ded$lim_min <- 40
+df_l_ded$lim_max <- 140
 
 df_p <- df_plot %>% filter(type == "lat")
-p1 <- return_plot(df_p, "lat")+scale_y_continuous(n.breaks = 3)
+p1 <- return_plot(df_p, "lat", df_l_inf)+scale_y_continuous(n.breaks = 3)
 df_p <- df_plot %>% filter(type == "hos")
-p2 <- return_plot(df_p, "hos")
+p2 <- return_plot(df_p, "hos", df_l_hos)
 df_p <- df_plot %>% filter(type == "icu")
-p3 <- return_plot(df_p, "icu")
+p3 <- return_plot(df_p, "icu", df_l_icu)
 df_p <- df_plot %>% filter(type == "ded")
-p4 <- return_plot(df_p, "ded")
+p4 <- return_plot(df_p, "ded", df_l_ded)
 
 p_plot <- ggpubr::ggarrange(p1,p2+theme(axis.title.y = element_blank()),p3,
                             p4+theme(axis.title.y = element_blank()), common.legend = TRUE, ncol = 2, nrow = 2,
@@ -358,7 +397,7 @@ p_plot <- ggpubr::ggarrange(p1,p2+theme(axis.title.y = element_blank()),p3,
 
 
 
-ggsave(plot = p_plot, "output/outcomes_corona_vac.png", device = "png", dpi = 300, width = 6.5, height = 5)  
+ggsave(plot = p_plot, "output/newFigures/outcomes_corona_vac.png", device = "png", dpi = 300, width = 6.5, height = 5)  
 
 
 ## Astra
@@ -385,20 +424,20 @@ df_plot$scenario <- factor(df_plot$scenario, levels = c("No Vaccine", "0% - 0%",
 
 
 df_p <- df_plot %>% filter(type == "lat")
-p1 <- return_plot(df_p, "lat")+scale_y_continuous(n.breaks = 3)
+p1 <- return_plot(df_p, "lat", df_l_inf)+scale_y_continuous(n.breaks = 3)
 df_p <- df_plot %>% filter(type == "hos")
-p2 <- return_plot(df_p, "hos")
+p2 <- return_plot(df_p, "hos", df_l_hos)
 df_p <- df_plot %>% filter(type == "icu")
-p3 <- return_plot(df_p, "icu")
+p3 <- return_plot(df_p, "icu", df_l_icu)
 df_p <- df_plot %>% filter(type == "ded")
-p4 <- return_plot(df_p, "ded")
+p4 <- return_plot(df_p, "ded", df_l_ded)
 
 p_plot <- ggpubr::ggarrange(p1,p2+theme(axis.title.y = element_blank()),p3,
                             p4+theme(axis.title.y = element_blank()), common.legend = TRUE, ncol = 2, nrow = 2,
                             legend = "right")
 
 
-ggsave(plot = p_plot, "output/outcomes_astra_vac.png", device = "png", dpi = 300, width = 6.5, height = 5)  
+ggsave(plot = p_plot, "output/newFigures/outcomes_astra_vac.png", device = "png", dpi = 300, width = 6.5, height = 5)  
 
 
 
@@ -428,19 +467,19 @@ df_plot$scenario <- factor(df_plot$scenario, levels = c("No Vaccine", "0% - 0%",
 
 
 df_p <- df_plot %>% filter(type == "lat")
-p1 <- return_plot(df_p, "lat")+scale_y_continuous(n.breaks = 3)
+p1 <- return_plot(df_p, "lat", df_l_inf)+scale_y_continuous(n.breaks = 3)
 df_p <- df_plot %>% filter(type == "hos")
-p2 <- return_plot(df_p, "hos")
+p2 <- return_plot(df_p, "hos", df_l_hos)
 df_p <- df_plot %>% filter(type == "icu")
-p3 <- return_plot(df_p, "icu")
+p3 <- return_plot(df_p, "icu", df_l_icu)
 df_p <- df_plot %>% filter(type == "ded")
-p4 <- return_plot(df_p, "ded")
+p4 <- return_plot(df_p, "ded", df_l_ded)
 
 p_plot <- ggpubr::ggarrange(p1,p2+theme(axis.title.y = element_blank()),p3,
                             p4+theme(axis.title.y = element_blank()), common.legend = TRUE, ncol = 2, nrow = 2,
                             legend = "right")
 
-ggsave(plot = p_plot, "output/outcomes_pfi_vac.png", device = "png", dpi = 300, width = 6.5, height = 5)  
+ggsave(plot = p_plot, "output/newFigures/outcomes_pfi_vac.png", device = "png", dpi = 300, width = 6.5, height = 5)  
 
 
 
@@ -497,21 +536,141 @@ df_plot <- dfnovac %>%
 
 ## plot for Baseline
 
+
+limits_min <- c("lat" = -0.15, "hos" = 0.0, "icu" = 0.0, "ded" = 0.10)
+limits_max <- c("lat" = 0.35, "hos" = 0.6, "icu" = 0.65, "ded" = 0.65)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Baseline")
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+ 
+  p_plot <- ggplot(df_plot1)+
+    geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
+    geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
+    scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
+    facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+    geom_blank(aes(y = lim_min))+
+    geom_blank(aes(y = lim_max))+
+    scale_color_manual(values = cores[2:7], name = "Scenarios")+
+    guides(color = guide_legend(override.aes = list(size=3)))+
+    #scale_y_continuous(expand = c(0,0))+
+    labs(y = "Reduction")+
+    theme_bw()+
+    theme(
+      axis.text.x = element_blank(),
+      axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+      axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 14, face = "bold"),
+      strip.text = element_text(size = 14, face = "bold"),
+      legend.title = element_text(size = 14, face = "bold"),
+      legend.text = element_text(size = 12),
+      # legend.key.size = unit(2.0, 'cm'),
+      legend.position = "bottom",
+      legend.box.spacing = unit(1.5, "cm")
+      
+    )
+  
+
+
+
+
+
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_base.png"), device = "png", dpi = 300, width = 8, height = 5.5)  
+
+
+
+## plot for Double
+
+limits_min <- c("lat" = -0.15, "hos" = 0.2, "icu" = 0.2, "ded" = 0.2)
+limits_max <- c("lat" = 0.6, "hos" = 0.8, "icu" = 0.8, "ded" = 0.85)
+
+
+df_plot1 <- df_plot %>% 
+  filter(scenario_y == "Double vaccination rate")
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
+# 
+# df_plot1 %>% 
+#   group_by(scenario, type) %>% 
+#   summarise(n = n())
+
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
+  labs(y = "Reduction")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 12),
+    # legend.key.size = unit(2.0, 'cm'),
+    legend.position = "bottom",
+    legend.box.spacing = unit(1.5, "cm")
+    
+  )
+
+
+
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_double.png"), device = "png", dpi = 300, width = 8, height = 5.5)  
+
+
+
+
+
+## plot for Risk perception
+
+limits_min <- c("lat" = -0.2, "hos" = -0.05, "icu" = 0.0, "ded" = 0.05)
+limits_max <- c("lat" = 0.35, "hos" = 0.6, "icu" = 0.6, "ded" = 0.65)
+
+
+df_plot1 <- df_plot %>% 
+  filter(scenario_y == "Low risk perception")
+
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
+# 
+# df_plot1 %>% 
+#   group_by(scenario, type) %>% 
+#   summarise(n = n())
+
+
+p_plot <- ggplot(df_plot1)+
+  geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
+  geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
+  facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
+  scale_color_manual(values = cores[2:7], name = "Scenarios")+
+  guides(color = guide_legend(override.aes = list(size=3)))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -528,81 +687,7 @@ p_plot <- ggplot(df_plot1)+
     
   )
 
-
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_base.png"), device = "png", dpi = 300, width = 8, height = 5)  
-
-
-
-## plot for Double
-
-df_plot1 <- df_plot %>% 
-  filter(scenario_y == "Double vaccination rate")
-# 
-# df_plot1 %>% 
-#   group_by(scenario, type) %>% 
-#   summarise(n = n())
-
-p_plot <- ggplot(df_plot1)+
-  geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
-  geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
-  facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
-  scale_color_manual(values = cores[2:7],name = "Scenarios")+
-  guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
-  labs(y = "Reduction")+
-  theme_bw()+
-  theme(
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
-    axis.ticks.x = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14, face = "bold"),
-    strip.text = element_text(size = 14, face = "bold"),
-    legend.title = element_text(size = 14, face = "bold"),
-    legend.text = element_text(size = 12),
-    legend.position = "bottom"
-    
-  )
-
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_double.png"), device = "png", dpi = 300, width = 8, height = 5)  
-
-
-
-
-## plot for Risk perception
-
-df_plot1 <- df_plot %>% 
-  filter(scenario_y == "Low risk perception")
-# 
-# df_plot1 %>% 
-#   group_by(scenario, type) %>% 
-#   summarise(n = n())
-
-p_plot <- ggplot(df_plot1)+
-  geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
-  geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
-  facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
-  scale_color_manual(values = cores[2:7], name = "Scenarios")+
-  guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
-  labs(y = "Reduction")+
-  theme_bw()+
-  theme(
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 12, angle = 90, hjust = 0.5),
-    axis.ticks.x = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14, face = "bold"),
-    strip.text = element_text(size = 14, face = "bold"),
-    legend.title = element_text(size = 14, face = "bold"),
-    legend.text = element_text(size = 12),
-    legend.position = "bottom"
-    
-  )
-
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_low.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_low.png"), device = "png", dpi = 300, width = 8, height = 5)  
 
 
 ####################################################################################
@@ -658,21 +743,33 @@ df_plot <- dfnovac %>%
 
 ## plot for Baseline
 
+
+limits_min <- c("lat" = -0.15, "hos" = 0.0, "icu" = 0.0, "ded" = 0.10)
+limits_max <- c("lat" = 0.35, "hos" = 0.6, "icu" = 0.65, "ded" = 0.65)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Baseline")
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -684,32 +781,46 @@ p_plot <- ggplot(df_plot1)+
     strip.text = element_text(size = 14, face = "bold"),
     legend.title = element_text(size = 14, face = "bold"),
     legend.text = element_text(size = 12),
-    legend.position = "bottom"
+    # legend.key.size = unit(2.0, 'cm'),
+    legend.position = "bottom",
+    legend.box.spacing = unit(1.5, "cm")
     
   )
 
 
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_base.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_base.png"), device = "png", dpi = 300, width = 8, height = 5.5)  
+
 
 
 
 ## plot for Double
 
+limits_min <- c("lat" = -0.15, "hos" = 0.2, "icu" = 0.2, "ded" = 0.2)
+limits_max <- c("lat" = 0.6, "hos" = 0.8, "icu" = 0.8, "ded" = 0.85)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Double vaccination rate")
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -721,32 +832,43 @@ p_plot <- ggplot(df_plot1)+
     strip.text = element_text(size = 14, face = "bold"),
     legend.title = element_text(size = 14, face = "bold"),
     legend.text = element_text(size = 12),
-    legend.position = "bottom"
+    # legend.key.size = unit(2.0, 'cm'),
+    legend.position = "bottom",
+    legend.box.spacing = unit(1.5, "cm")
     
   )
-
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_double.png"), device = "png", dpi = 300, width = 8, height = 5)  
-
-
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_double.png"), device = "png", dpi = 300, width = 8, height = 5.5)
 
 
 ## plot for Risk perception
 
+limits_min <- c("lat" = -0.2, "hos" = -0.05, "icu" = 0.0, "ded" = 0.05)
+limits_max <- c("lat" = 0.35, "hos" = 0.6, "icu" = 0.6, "ded" = 0.65)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Low risk perception")
+
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -758,11 +880,12 @@ p_plot <- ggplot(df_plot1)+
     strip.text = element_text(size = 14, face = "bold"),
     legend.title = element_text(size = 14, face = "bold"),
     legend.text = element_text(size = 12),
+    # legend.key.size = unit(2.0, 'cm'),
     legend.position = "bottom"
     
   )
 
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_low.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_low.png"), device = "png", dpi = 300, width = 8, height = 5)  
 
 
 
@@ -819,21 +942,32 @@ df_plot <- dfnovac %>%
 
 ## plot for Baseline
 
+limits_min <- c("lat" = -0.15, "hos" = 0.0, "icu" = 0.0, "ded" = 0.10)
+limits_max <- c("lat" = 0.35, "hos" = 0.6, "icu" = 0.65, "ded" = 0.65)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Baseline")
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -845,32 +979,48 @@ p_plot <- ggplot(df_plot1)+
     strip.text = element_text(size = 14, face = "bold"),
     legend.title = element_text(size = 14, face = "bold"),
     legend.text = element_text(size = 12),
-    legend.position = "bottom"
+    # legend.key.size = unit(2.0, 'cm'),
+    legend.position = "bottom",
+    legend.box.spacing = unit(1.5, "cm")
     
   )
 
 
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_base.png"), device = "png", dpi = 300, width = 8, height = 5)  
+
+
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_base.png"), device = "png", dpi = 300, width = 8, height = 5.5)  
+
 
 
 
 ## plot for Double
 
+limits_min <- c("lat" = -0.15, "hos" = 0.2, "icu" = 0.2, "ded" = 0.2)
+limits_max <- c("lat" = 0.6, "hos" = 0.8, "icu" = 0.8, "ded" = 0.85)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Double vaccination rate")
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -882,32 +1032,47 @@ p_plot <- ggplot(df_plot1)+
     strip.text = element_text(size = 14, face = "bold"),
     legend.title = element_text(size = 14, face = "bold"),
     legend.text = element_text(size = 12),
-    legend.position = "bottom"
+    # legend.key.size = unit(2.0, 'cm'),
+    legend.position = "bottom",
+    legend.box.spacing = unit(1.5, "cm")
+    #plot.margin = unit(c(1,1,1.5,1), "cm")
     
   )
 
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_double.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_double.png"), device = "png", dpi = 300, width = 8, height = 5.5)  
 
 
 
 
 ## plot for Risk perception
 
+limits_min <- c("lat" = -0.2, "hos" = -0.05, "icu" = 0.0, "ded" = 0.05)
+limits_max <- c("lat" = 0.35, "hos" = 0.6, "icu" = 0.6, "ded" = 0.65)
+
+
 df_plot1 <- df_plot %>% 
   filter(scenario_y == "Low risk perception")
+
+
+df_plot1$lim_min = limits_min[df_plot1$type]
+df_plot1$lim_max = limits_max[df_plot1$type]
+
 # 
 # df_plot1 %>% 
 #   group_by(scenario, type) %>% 
 #   summarise(n = n())
 
+
 p_plot <- ggplot(df_plot1)+
   geom_jitter(aes(x = scenario, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = Reduction), fill = NA, size = 1.2, width = 0.3)+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1), expand = c(0,0))+
   facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+  geom_blank(aes(y = lim_min))+
+  geom_blank(aes(y = lim_max))+
   scale_color_manual(values = cores[2:7], name = "Scenarios")+
   guides(color = guide_legend(override.aes = list(size=3)))+
-  #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
+  #scale_y_continuous(expand = c(0,0))+
   labs(y = "Reduction")+
   theme_bw()+
   theme(
@@ -919,11 +1084,12 @@ p_plot <- ggplot(df_plot1)+
     strip.text = element_text(size = 14, face = "bold"),
     legend.title = element_text(size = 14, face = "bold"),
     legend.text = element_text(size = 12),
+    # legend.key.size = unit(2.0, 'cm'),
     legend.position = "bottom"
     
   )
 
-ggsave(plot = p_plot, paste0("output/red_", vac,"_vac_low.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_", vac,"_vac_low.png"), device = "png", dpi = 300, width = 8, height = 5)  
 
 
 
@@ -982,7 +1148,12 @@ create_table_red_initial <- function(df){
   return(df_plot)
 }
 
-create_plot_red_initial <- function(df_plot){
+create_plot_red_initial <- function(df_plot, limits_min, limits_max){
+
+  
+  df_plot$lim_min = limits_min[df_plot$type]
+  df_plot$lim_max = limits_max[df_plot$type]
+  
   
  df_plot %>% 
     filter(scenario_y == "Baseline") %>% 
@@ -990,8 +1161,10 @@ create_plot_red_initial <- function(df_plot){
     #geom_jitter(aes(x = initial, y = Reduction, color = scenario), alpha = 0.5, width = 0.3)+
     geom_point(aes(x = initial, y = Reduction, color = scenario), size = 1.8)+
     geom_line(aes(x = initial, y = Reduction, color = scenario), size = 0.8, linetype = 'dashed')+
-    scale_y_continuous(labels = scales::percent)+
-    facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+     scale_y_continuous(labels = scales::percent, expand = c(0,0))+
+     facet_wrap(.~type, labeller = variable_labeller, scales = "free_y", ncol = 4)+
+     geom_blank(aes(y = lim_min))+
+     geom_blank(aes(y = lim_max))+
     scale_color_manual(values = cores[2:7], name = "Scenarios")+
     guides(color = guide_legend(override.aes = list(size=3)))+
     #scale_y_continuous(breaks = c(18e3, 22e3, 26e3))+
@@ -1063,11 +1236,17 @@ for(t in types){
   }
 }
 
+
+limits_min <- c("lat" = 0.01, "hos" = 0.05, "icu" = 0.05, "ded" = 0.1)
+limits_max <- c("lat" = 0.17, "hos" = 0.4, "icu" = 0.45, "ded" = 0.55)
+
+
+
 df_plot <- create_table_red_initial(df)
-p_plot <- create_plot_red_initial(df_plot)
+p_plot <- create_plot_red_initial(df_plot, limits_min, limits_max)
 
 vac = "corona"
-ggsave(plot = p_plot, paste0("output/red_initial_", vac,"_vac.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_initial_", vac,"_vac.png"), device = "png", dpi = 300, width = 8, height = 5)  
 
 
 
@@ -1098,11 +1277,11 @@ for(t in types){
 }
 
 df_plot <- create_table_red_initial(df)
-p_plot <- create_plot_red_initial(df_plot)
+p_plot <- create_plot_red_initial(df_plot, limits_min, limits_max)
 
 
 vac = "astra"
-ggsave(plot = p_plot, paste0("output/red_initial_", vac,"_vac.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_initial_", vac,"_vac.png"), device = "png", dpi = 300, width = 8, height = 5)  
 
 
 ########
@@ -1132,11 +1311,11 @@ for(t in types){
 }
 
 df_plot <- create_table_red_initial(df)
-p_plot <- create_plot_red_initial(df_plot)
+p_plot <- create_plot_red_initial(df_plot, limits_min, limits_max)
 
 
 vac = "pfi"
-ggsave(plot = p_plot, paste0("output/red_initial_", vac,"_vac.png"), device = "png", dpi = 300, width = 8, height = 5)  
+ggsave(plot = p_plot, paste0("output/newFigures/red_initial_", vac,"_vac.png"), device = "png", dpi = 300, width = 8, height = 5)  
 
 
 # Create tables -----------------------------------------------------------
@@ -1265,11 +1444,6 @@ openxlsx::write.xlsx(df_out, paste0("output/results_red_", vac, ".xlsx"))
 
 
 
-
-
-
-
-
 read_data_exp <- function(folder, betai, herdi, efsymp = "0", redp = "0.0", risk_red = "0.0", ef_sev = "0.0", vac_rate = 300, ag = "all"){
   
   folder_sim = paste0(folder, "/results_prob_0_", betai,"_vac_0_", efsymp, "_herd_immu_", herdi,
@@ -1367,6 +1541,7 @@ df_plot <- Reduce(rbind, lista)
 plot_cor <- ggplot(df_plot)+
   geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+  scale_y_continuous(limits = c(1500, 4000))+
   #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
   scale_color_carto_d(palette = "Bold", name = "Scenarios")+
   labs(y = "Years of life lost", title = "B")+
@@ -1410,6 +1585,7 @@ df_plot <- Reduce(rbind, lista)
 plot_ast <- ggplot(df_plot)+
   geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+  scale_y_continuous(limits = c(1500, 4000))+
   #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
   scale_color_carto_d(palette = "Bold", name = "Scenarios")+
   labs(y = "Years of life lost", title = "C")+
@@ -1453,6 +1629,7 @@ df_plot <- Reduce(rbind, lista)
 plot_pfi <- ggplot(df_plot)+
   geom_jitter(aes(x = scenario, y = result, color = scenario), alpha = 0.5, width = 0.3)+
   geom_boxplot(aes(x = scenario, y = result), fill = NA, size = 1.2, width = 0.3)+
+  scale_y_continuous(limits = c(1500, 4000))+
   #facet_wrap(.~type, labeller = variable_labeller, scales = "free_y")+
   scale_color_carto_d(palette = "Bold", name = "Scenarios")+
   labs(y = "Years of life lost", title = "D")+
@@ -1511,5 +1688,64 @@ pyll <- ggpubr::ggarrange(ggpubr::ggarrange(p.data), ggpubr::ggarrange(plot_cor+
 
 
 
-ggsave(plot = pyll, paste0("output/pyll.png"), device = "png", dpi = 300, width = 10, height = 4)  
+ggsave(plot = pyll, paste0("output/newFigures/pyll.png"), device = "png", dpi = 300, width = 10, height = 4)  
+
+
+
+# Create table ------------------------------------------------------------
+
+
+get_prop <- function(Vaccine){
+  age_groups <- c("0-4", "5-19", "20-49", "50-64", "65-79", "80-100")
+  ags <- paste0("ag", 1:6)
+  ags <- c(ags, "all")
+  resultados <- lapply(ags, function(x) read_file_incidence("normal_sims/", "lat", beta[3], "20", Vac_efs[Vaccine], "0.0", "0.0", ag = x))
+  props <- lapply(resultados, function(x) sum(x[, -1]))
+  props <- Reduce(c, props)
+  props <- props/props[7]
+  
+  df <- data.frame(proportion = props[-length(props)], `Age groups` = age_groups)
+  df$Vaccine = Vaccine
+  df
+}
+
+props <- lapply(Vaccines, get_prop)
+
+props <- Reduce(rbind, props)
+
+props <- props %>% 
+  tidyr::pivot_wider(names_from = "Age.groups", values_from = "proportion")
+
+xtable::xtable(props)
+
+#[4;19;49;64;79;999]
+
+names(props) <- c("Proportion", "Age Group", "Vaccine")
+
+props$Vaccine <- factor(props$Vaccine, levels = rev(Vaccines))
+props$`Age Group` <- factor(props$`Age Group`, levels = c("0-4", "5-19", "20-49", "50-64", "65-79", "80-100"))
+
+ggplot(props)+
+  geom_col(aes(x = Proportion, y = Vaccine, color = `Age Group`, fill = `Age Group`))+
+  rcartocolor::scale_fill_carto_d(palette = "Bold")+
+  rcartocolor::scale_color_carto_d(palette = "Bold")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_discrete(expand = c(0,0))+
+  theme_bw()+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),#, angle = 90, hjust = 0.5),
+    # axis.ticks.x = element_blank(),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    #strip.text = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 13, face = "plain"),
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold")
+    
+  )
+ggsave("output/prop_vaccines.png", device = "png", dpi = 300, width = 6.4, height = 3)
+
+
 
